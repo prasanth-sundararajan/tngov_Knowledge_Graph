@@ -1,0 +1,7 @@
+certifi
+langchain-community
+langchain-experimental
+langchain-neo4j
+langchain-openai
+langchain-text-splitters
+python-dotenv
