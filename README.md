@@ -1,79 +1,100 @@
-# Tamil Nadu Government Schemes Knowledge Graph
+# Tamil Nadu Government Schemes Knowledge Graph (KG-RAG)
 
-This project is a small knowledge-graph and question-answering demo. It reads the Tamil Nadu Government schemes page, asks an OpenAI model to identify entities and relationships, stores the extracted graph in Neo4j, and runs a sample question against that graph.
+> Turn government scheme pages into a knowledge graph and ask questions that use both text and relationships.
 
-## What the script does
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white) ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white) ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?logo=langchain&logoColor=white) ![Neo4j](https://img.shields.io/badge/Neo4j-4581C3?logo=neo4j&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?logo=playwright&logoColor=white) ![OpenAI](https://img.shields.io/badge/OpenAI-412991?logo=openai&logoColor=white) ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-The main program, `tngov_neo4j.py`:
+## Overview
 
-1. Connects to Neo4j using settings from a `.env` file. It uses Certifi's CA bundle for TLS and Neo4j's routed connection.
-2. Loads the Tamil Nadu Government schemes page.
-3. Splits the page into text chunks (1,000 characters with 200 characters of overlap).
-4. Processes the first three chunks with `gpt-4o-mini` to extract graph entities and relationships.
-5. Stores the graph data in Neo4j.
-6. Uses a LangChain Cypher question-answering chain to ask a sample question.
+Scheme pages describe who is eligible, which department runs a scheme and what it provides, which is naturally a graph. This project scrapes the Tamil Nadu government [scheme list](https://www.tn.gov.in/scheme_list.php?dep_id=Mg==), uses an LLM to extract entities and relationships, stores them in **Neo4j** and **NetworkX**, and answers questions with **graph context plus hybrid text retrieval**.
 
-The source URL, sample question, and number of processed chunks are currently set in the Python script.
+## Features
 
-## Requirements
+- Scheme page scraping (Playwright + BeautifulSoup)
+- LLM-based entity and relationship extraction (`LLMGraphTransformer`)
+- Graph stored in **Neo4j** (Aura or local) and mirrored in **NetworkX**
+- Hybrid retriever over scheme text
+- Answers combine retrieved text with graph neighbourhoods
+- Standalone scripts for Neo4j-only and NetworkX-only experiments
 
-- Python 3.10 or newer
-- An OpenAI API key
-- A running Neo4j database and its URI, username, password, and database name
-- The Python packages listed in `requirements.txt`
+## Demo
 
-## Setup on Windows PowerShell
+![Graph visualisation](visualisation.png)
 
-Open PowerShell in this folder:
+## How it works
 
-```powershell
-cd C:\Users\HP\GenAI_Program\knowledge_graph
+```mermaid
+flowchart LR
+    W["tn.gov.in scheme pages"] --> S["Scraper"] --> D["Documents"]
+    D --> T["LLMGraphTransformer"] --> N[("Neo4j")] & X[("NetworkX")]
+    D --> H["Hybrid retriever"]
+    Q["Question"] --> H & X
+    H & X --> C["Text + graph context"] --> L["gpt-4o-mini"] --> A["Answer"]
 ```
 
-Create and activate a virtual environment if you do not already have one:
+## Tech stack
 
-```powershell
+| Layer | Technology |
+|---|---|
+| UI | Streamlit |
+| Graph | Neo4j, NetworkX |
+| Orchestration | LangChain, `langchain-experimental` |
+| Models | OpenAI `gpt-4o-mini`, `text-embedding-3-small` |
+| Scraping | Playwright, BeautifulSoup |
+
+## Project structure
+
+```text
+.
+├── KG_RAG.py            # full pipeline + Streamlit app
+├── tngov_neo4j.py       # build the graph in Neo4j only
+├── tngov_networkx.py    # build and query the graph with NetworkX only
+├── visualisation.png
+├── requirements.txt
+└── .env.example
+```
+
+## Getting started
+
+**Prerequisites:** Python 3.10+, a Neo4j database (local or [Neo4j Aura](https://neo4j.com/cloud/aura/))
+
+```bash
+git clone https://github.com/prasanth-sundararajan/tngov_Knowledge_Graph.git
+cd tngov_Knowledge_Graph
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# Windows: .venv\Scripts\activate    macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
 ```
 
-Install the dependencies:
+Copy `.env.example` to `.env` and add your keys:
 
-```powershell
-python -m pip install -r requirements.txt
+```bash
+cp .env.example .env
 ```
 
-Create a `.env` file in this folder. Add your own credentials locally; do not commit this file:
+## Usage
 
-```env
-OPENAI_API_KEY=your_openai_api_key
-NEO4J_URI=neo4j+s://your-instance.databases.neo4j.io
-NEO4J_USERNAME=your_neo4j_username
-NEO4J_PASSWORD=your_neo4j_password
-NEO4J_DATABASE=your_neo4j_database_name
+```bash
+streamlit run KG_RAG.py
 ```
+The first run scrapes the scheme pages and builds the graph; then ask questions such as *"Which schemes support women entrepreneurs?"*
 
-`NEO4J_DATABASE` is optional in the current script; if omitted, it defaults to the Neo4j username. Confirm that the selected database name exists in your Neo4j instance. For Neo4j Aura, use the exact URI and database details provided for your instance.
+## Configuration
 
-## Run
+| Variable | Required | Description |
+|---|---|---|
+| `OPENAI_API_KEY` | Yes | OpenAI API key used for chat and embeddings |
+| `NEO4J_URI` | Yes | Neo4j connection URI (e.g. `neo4j+s://...`) |
+| `NEO4J_USERNAME` | Yes | Neo4j user |
+| `NEO4J_PASSWORD` | Yes | Neo4j password |
+| `NEO4J_DATABASE` | No | Database name (defaults to the username) |
 
-With the virtual environment active and `.env` configured:
+## License
 
-```powershell
-python tngov_neo4j.py
-```
+Released under the [MIT License](LICENSE).
 
-The program prints progress, the generated Cypher query, and the answer to its sample question.
+## Author
 
-## Security and usage notes
-
-- Keep `.env` and all API credentials out of Git. If a key or password has been shared or exposed, revoke it and create a replacement.
-- The script sends retrieved page text to OpenAI for graph extraction and question answering. Do not use it with confidential material unless that use is approved.
-- `GraphCypherQAChain` is configured with `allow_dangerous_requests=True`. Run it only against a database you are authorized to use, and review generated Cypher queries before using this pattern with important data.
-- This is a learning/demo project. Check generated answers against the source material before relying on them.
-
-## Current limitations
-
-- Only the first three text chunks are converted into graph data.
-- The script asks one hard-coded sample question rather than accepting interactive questions.
-- The imported LangChain community and experimental integrations may display deprecation warnings as those packages evolve.
+**Prasanth Sundararajan**, Senior SRE and AI Engineer  
+[LinkedIn](https://www.linkedin.com/in/prasanth-s-a093a7109/) · [GitHub](https://github.com/prasanth-sundararajan)

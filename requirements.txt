@@ -1,7 +1,14 @@
+streamlit
+python-dotenv
 certifi
+beautifulsoup4
+playwright
+networkx
+neo4j
+langchain-core
 langchain-community
 langchain-experimental
 langchain-neo4j
 langchain-openai
+langchain-chroma
 langchain-text-splitters
-python-dotenv
